@@ -7,7 +7,7 @@ A modern, powerful video downloader supporting **YouTube**, **Facebook**, and **
 ### 🌐 Multi-Platform Support
 - **YouTube** - Full support with 4K downloads, MP3 conversion, and format selection
 - **Facebook** - HD/SD video downloads with audio included
-- **Instagram** - Reels, Posts, IGTV, and Stories downloads
+- **Instagram** - Reels, Posts, and IGTV downloads
 - **Platform Selector** - Clean landing page to choose your platform
 
 ### 🚀 Core Features
@@ -54,10 +54,8 @@ A modern, powerful video downloader supporting **YouTube**, **Facebook**, and **
 - **Reels** - Short-form vertical videos
 - **Posts** - Photo/video carousel posts
 - **IGTV** - Long-form videos
-- **Stories** - 24-hour content (with cookies)
 - **Private accounts** (with cookies)
 - Best quality auto-selected
-- Simple one-click downloads
 
 ## 🚀 Quick Start
 
@@ -120,9 +118,8 @@ Cookies are **optional** but enable:
 - Better reliability for restricted content
 
 ### For Instagram
-Cookies are **recommended** and enable:
+Cookies are **optional** and enable:
 - Downloading from private accounts you follow
-- Accessing stories
 - Better reliability for all content
 - Bypassing rate limits
 
@@ -438,9 +435,8 @@ After installing, restart the server. You'll see:
 ### v6.0 - Instagram Support 📸
 - 📸 **Instagram Downloader** - Full Instagram support added
 - 🎬 **Reels & IGTV** - Download short and long-form videos
-- 📱 **Posts & Stories** - Save photo/video content (cookies required for stories)
+- 📱 **Posts** - Save video content from posts
 - 🎨 **Instagram Branding** - Signature gradient pink-purple theme
-- 🚀 **Simplified UI** - One-click downloads, best quality auto-selected
 - 🌐 **3 Platforms** - Platform selector updated for YouTube, Facebook, Instagram
 
 ### v5.0 - Multi-Platform Support 🌐

@@ -112,22 +112,35 @@ const checkCookieHealth = () => {
         const hasLoginCookie = cookieContent.includes('LOGIN_INFO') || cookieContent.includes('SID');
         const hasSessionCookie = cookieContent.includes('SSID') || cookieContent.includes('HSID');
         
-        // Check cookie expiry dates
+        // Important authentication cookies to check for expiry
+        // Ignore trivial cookies like GPS, PREF, NID that don't affect authentication
+        const importantCookieNames = [
+            'LOGIN_INFO', 'SID', 'SSID', 'HSID', 'APISID', 'SAPISID',
+            '__Secure-1PSID', '__Secure-3PSID', '__Secure-1PAPISID', '__Secure-3PAPISID',
+            'sessionid', 'csrftoken', 'ds_user_id' // Instagram
+        ];
+        
+        // Check cookie expiry dates (only for important cookies)
         const now = Math.floor(Date.now() / 1000);
         const oneDayFromNow = now + 86400;
         const oneWeekFromNow = now + 604800;
-        let hasExpired = false;
+        let hasExpiredImportant = false;
         let expiringSoon = false;
         let earliestExpiry = Infinity;
+        let expiredCookieName = '';
         
         for (const line of lines) {
             const parts = line.split('\t');
-            if (parts.length >= 5) {
+            if (parts.length >= 7) {
+                const cookieName = parts[5]; // Cookie name is at index 5 in Netscape format
                 const expiry = parseInt(parts[4], 10);
+                const isImportant = importantCookieNames.some(name => cookieName.includes(name));
+                
                 if (!isNaN(expiry) && expiry > 0) {
-                    if (expiry < now) {
-                        hasExpired = true;
-                    } else if (expiry < oneWeekFromNow) {
+                    if (expiry < now && isImportant) {
+                        hasExpiredImportant = true;
+                        expiredCookieName = cookieName;
+                    } else if (expiry < oneWeekFromNow && isImportant) {
                         expiringSoon = true;
                         earliestExpiry = Math.min(earliestExpiry, expiry);
                     }
@@ -135,10 +148,10 @@ const checkCookieHealth = () => {
             }
         }
         
-        if (hasExpired) {
+        if (hasExpiredImportant) {
             cookieStatus = { 
                 valid: false, 
-                message: 'Some cookies have expired. Please re-export from browser.', 
+                message: `Important cookie expired (${expiredCookieName}). Please re-export from browser.`, 
                 expiringSoon: false 
             };
         } else if (!hasLoginCookie && !hasSessionCookie) {
@@ -1517,6 +1530,8 @@ async function downloadInstagramVideo(downloadId, url, outputPath) {
     });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ██╗███╗   ██╗███████╗████████╗ █████╗     ███████╗████████╗ ██████╗ ██████╗ ██╗███████╗███████╗
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Get completed download file
