@@ -1,5 +1,5 @@
 import React from 'react';
-import { Youtube, Facebook, Download, Sparkles, Shield, Zap } from 'lucide-react';
+import { Youtube, Facebook, Instagram, Download, Sparkles, Shield, Zap, Film } from 'lucide-react';
 
 const PlatformSelector = ({ onSelectPlatform }) => {
   return (
@@ -12,7 +12,7 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           MediaFlow <span className="gradient-text">Downloader</span>
         </h1>
         <p className="selector-subtitle">
-          Download your favorite videos from YouTube and Facebook.
+          Download your favorite videos from YouTube, Facebook, and Instagram.
           Fast, secure, and completely free!
         </p>
       </div>
@@ -71,6 +71,34 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           <button className="platform-btn facebook-btn">
             <Facebook size={18} />
             Open Facebook Downloader
+          </button>
+        </div>
+
+        {/* Instagram Card */}
+        <div 
+          className="platform-card instagram-card"
+          onClick={() => onSelectPlatform('instagram')}
+        >
+          <div className="platform-icon instagram-icon">
+            <Instagram size={48} strokeWidth={1.5} />
+          </div>
+          <h2 className="platform-name">Instagram</h2>
+          <p className="platform-description">
+            Download Reels, Posts, and IGTV videos instantly with one click
+          </p>
+          <div className="platform-features">
+            <span className="feature-tag">
+              <Film size={12} />
+              Reels & IGTV
+            </span>
+            <span className="feature-tag">
+              <Zap size={12} />
+              One-Click
+            </span>
+          </div>
+          <button className="platform-btn instagram-btn">
+            <Instagram size={18} />
+            Open Instagram Downloader
           </button>
         </div>
       </div>
@@ -181,6 +209,15 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           border-color: rgba(59, 130, 246, 0.3);
         }
 
+        .instagram-card::before {
+          background: linear-gradient(90deg, #E1306C, #833AB4);
+        }
+
+        .instagram-card:hover {
+          background: rgba(225, 48, 108, 0.08);
+          border-color: rgba(225, 48, 108, 0.3);
+        }
+
         .platform-icon {
           width: 90px;
           height: 90px;
@@ -206,6 +243,12 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
           color: white;
           box-shadow: 0 12px 40px rgba(59, 130, 246, 0.35);
+        }
+
+        .instagram-icon {
+          background: linear-gradient(135deg, #E1306C 0%, #C13584 50%, #833AB4 100%);
+          color: white;
+          box-shadow: 0 12px 40px rgba(225, 48, 108, 0.35);
         }
 
         .platform-name {
@@ -281,6 +324,17 @@ const PlatformSelector = ({ onSelectPlatform }) => {
 
         .facebook-btn:hover {
           box-shadow: 0 12px 40px rgba(59, 130, 246, 0.45);
+          transform: translateY(-2px);
+        }
+
+        .instagram-btn {
+          background: linear-gradient(135deg, #E1306C 0%, #C13584 50%, #833AB4 100%);
+          color: white;
+          box-shadow: 0 8px 30px rgba(225, 48, 108, 0.3);
+        }
+
+        .instagram-btn:hover {
+          box-shadow: 0 12px 40px rgba(225, 48, 108, 0.45);
           transform: translateY(-2px);
         }
 

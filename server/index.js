@@ -905,8 +905,14 @@ const detectPlatform = (url) => {
         /fb\.com/i
     ];
     
+    const instagramPatterns = [
+        /instagram\.com/i,
+        /instagr\.am/i
+    ];
+    
     if (youtubePatterns.some(p => p.test(url))) return 'youtube';
     if (facebookPatterns.some(p => p.test(url))) return 'facebook';
+    if (instagramPatterns.some(p => p.test(url))) return 'instagram';
     
     return 'unknown';
 };
@@ -1202,6 +1208,310 @@ async function downloadFacebookVideo(downloadId, url, formatId, outputPath) {
                 clearTimeout(downloadTimeout);
                 clearInterval(progressInterval);
                 console.error('Facebook yt-dlp error:', err.message || err);
+                reject(err);
+            });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ████████╗    ██╗███╗   ██╗███████╗████████╗ █████╗  ██████╗ ██████╗  █████╗ ███╗   ███╗
+// ╚══██╔══╝    ██║████╗  ██║██╔════╝╚══██╔══╝██╔══██╗██╔════╝ ██╔══██╗██╔══██╗████╗ ████║
+//    ██║       ██║██╔██╗ ██║███████╗   ██║   ███████║██║  ███╗██████╔╝███████║██╔████╔██║
+//    ██║       ██║██║╚██╗██║╚════██║   ██║   ██╔══██║██║   ██║██╔══██╗██╔══██║██║╚██╔╝██║
+//    ██║       ██║██║ ╚████║███████║   ██║   ██║  ██║╚██████╔╝██║  ██║██║  ██║██║ ╚═╝ ██║
+//    ╚═╝       ╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Instagram video info endpoint
+app.post('/api/instagram/video-info', async (req, res) => {
+    try {
+        const { url } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        // Validate Instagram URL
+        const instagramPatterns = [
+            /instagram\.com\/p\//i,
+            /instagram\.com\/reel\//i,
+            /instagram\.com\/reels\//i,
+            /instagram\.com\/tv\//i,
+            /instagram\.com\/stories\//i,
+            /instagr\.am\/p\//i,
+            /instagr\.am\/reel\//i,
+        ];
+
+        const isValidInstagram = instagramPatterns.some(pattern => pattern.test(url));
+        
+        if (!isValidInstagram) {
+            return res.status(400).json({ error: 'Invalid Instagram URL' });
+        }
+
+        console.log('📸 Fetching Instagram video info for:', url);
+
+        const options = { 
+            dumpSingleJson: true, 
+            noWarnings: true,
+            noPlaylist: true
+        };
+        
+        // Add cookies if available (important for Instagram)
+        if (hasCookies) {
+            options.cookies = cookiesPath;
+            console.log('🍪 Using cookies for Instagram');
+        }
+
+        const info = await ytDlp(url, options);
+
+        if (!info) {
+            return res.status(404).json({ error: 'Could not fetch video info' });
+        }
+
+        // Extract content type from URL
+        let contentType = 'post';
+        if (url.includes('/reel') || url.includes('/reels')) {
+            contentType = 'reel';
+        } else if (url.includes('/tv/')) {
+            contentType = 'igtv';
+        } else if (url.includes('/stories/')) {
+            contentType = 'story';
+        }
+
+        // Get the best format for Instagram
+        // Instagram usually provides a single best quality format
+        let bestFormat = null;
+        let filesize = null;
+
+        if (info.formats && info.formats.length > 0) {
+            // Find the best format with video
+            const videoFormats = info.formats.filter(f => 
+                f.vcodec && f.vcodec !== 'none' && f.ext === 'mp4'
+            );
+            
+            if (videoFormats.length > 0) {
+                // Sort by quality (height) and get the best one
+                bestFormat = videoFormats.sort((a, b) => (b.height || 0) - (a.height || 0))[0];
+                filesize = bestFormat.filesize || bestFormat.filesize_approx || null;
+            } else {
+                // Fallback to any available format
+                bestFormat = info.formats[info.formats.length - 1];
+                filesize = bestFormat?.filesize || bestFormat?.filesize_approx || null;
+            }
+        }
+
+        // Construct response
+        const videoInfo = {
+            title: info.title || info.description?.substring(0, 50) || 'Instagram Video',
+            description: info.description || '',
+            thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || null,
+            duration: info.duration || 0,
+            uploader: info.uploader || info.channel || 'Unknown',
+            uploadDate: info.upload_date || null,
+            viewCount: info.view_count || 0,
+            likeCount: info.like_count || 0,
+            commentCount: info.comment_count || 0,
+            contentType: contentType,
+            width: bestFormat?.width || info.width || null,
+            height: bestFormat?.height || info.height || null,
+            filesize: filesize,
+            formatId: bestFormat?.format_id || 'best',
+            platform: 'instagram'
+        };
+
+        console.log(`📸 Instagram ${contentType} info fetched: ${videoInfo.title?.substring(0, 30)}...`);
+        res.json(videoInfo);
+
+    } catch (error) {
+        console.error('Instagram video info error:', error);
+        
+        // Provide more specific error messages
+        if (error.message?.includes('Private')) {
+            return res.status(403).json({ 
+                error: 'This is a private Instagram post. Login cookies required.' 
+            });
+        }
+        if (error.message?.includes('login')) {
+            return res.status(401).json({ 
+                error: 'Instagram requires login. Please add cookies.json for authentication.' 
+            });
+        }
+        
+        res.status(500).json({ error: 'Failed to fetch Instagram video info' });
+    }
+});
+
+// Instagram download start endpoint
+app.post('/api/instagram/download-start', async (req, res) => {
+    try {
+        const { url, estimatedSize } = req.body;
+        const downloadId = uuidv4();
+
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        // Check disk space
+        const diskInfo = await checkDiskSpace(estimatedSize || 100 * 1024 * 1024); // Default 100MB
+        if (!diskInfo.sufficient) {
+            return res.status(507).json({ 
+                error: 'Insufficient disk space', 
+                message: diskInfo.message,
+                freeGB: diskInfo.freeGB
+            });
+        }
+
+        console.log(`📸 Starting Instagram download`);
+
+        res.json({ downloadId, status: 'started', platform: 'instagram', diskSpace: diskInfo });
+
+        // Wait for SSE connection
+        await new Promise((resolve) => {
+            if (activeDownloads.has(downloadId)) {
+                resolve();
+                return;
+            }
+            const timeout = setTimeout(() => {
+                downloadReadyCallbacks.delete(downloadId);
+                resolve();
+            }, 5000);
+            
+            downloadReadyCallbacks.set(downloadId, () => {
+                clearTimeout(timeout);
+                resolve();
+            });
+        });
+
+        await new Promise(r => setTimeout(r, 100));
+
+        // Process Instagram download
+        processInstagramDownload(downloadId, url);
+
+    } catch (error) {
+        console.error('Instagram download start error:', error);
+        res.status(500).json({ error: 'Failed to start download' });
+    }
+});
+
+// Process Instagram video download
+async function processInstagramDownload(downloadId, url) {
+    try {
+        sendProgress(downloadId, { 
+            status: 'downloading', 
+            progress: 0, 
+            stage: '📸 Starting Instagram download...' 
+        });
+
+        // Get video info first
+        const infoOptions = { 
+            dumpSingleJson: true, 
+            noWarnings: true,
+            noPlaylist: true
+        };
+        if (hasCookies) infoOptions.cookies = cookiesPath;
+        
+        const info = await ytDlp(url, infoOptions);
+        
+        // Create safe filename from title or description
+        let title = info.title || info.description || 'instagram_video';
+        title = title
+            .replace(/[^\w\s-]/gi, '')
+            .replace(/\s+/g, '_')
+            .substring(0, 80);
+        
+        if (!title) title = 'instagram_video';
+        
+        const outputFilename = `${title}.mp4`;
+        const outputPath = path.join(downloadsDir, `${downloadId}_${outputFilename}`);
+
+        // Download Instagram video
+        await downloadInstagramVideo(downloadId, url, outputPath);
+
+        sendProgress(downloadId, { 
+            status: 'completed', 
+            filename: outputFilename,
+            downloadId: downloadId,
+            platform: 'instagram'
+        });
+
+    } catch (error) {
+        console.error('❌ Instagram download error:', error);
+        sendProgress(downloadId, { 
+            status: 'error', 
+            message: error.message || 'Download failed' 
+        });
+    }
+}
+
+// Download Instagram video using yt-dlp
+async function downloadInstagramVideo(downloadId, url, outputPath) {
+    return new Promise((resolve, reject) => {
+        const ytDlpExec = require('yt-dlp-exec');
+
+        const options = {
+            format: 'best[ext=mp4]/best',
+            output: outputPath,
+            noWarnings: true,
+            noCheckCertificates: true,
+            noPlaylist: true,
+            mergeOutputFormat: 'mp4',
+        };
+
+        if (hasCookies) options.cookies = cookiesPath;
+
+        // Use aria2c if available for faster downloads
+        if (hasAria2c) {
+            options.externalDownloader = aria2cPath;
+            options.externalDownloaderArgs = '-x 16 -s 16 -k 1M --file-allocation=none';
+            console.log('⚡ Using aria2c for faster Instagram download');
+        }
+
+        console.log(`📸 Downloading Instagram video`);
+
+        let fakeProgress = 5;
+        const stage = '📸 Downloading Instagram video...';
+
+        sendProgress(downloadId, { 
+            status: 'downloading', 
+            progress: 5, 
+            stage 
+        });
+
+        // Instagram downloads are usually fast
+        const progressInterval = setInterval(() => {
+            fakeProgress += Math.random() * 10;
+            if (fakeProgress >= 95) {
+                fakeProgress = 95;
+            }
+            sendProgress(downloadId, { 
+                status: 'downloading', 
+                progress: Math.round(fakeProgress), 
+                stage: `${stage} ${Math.round(fakeProgress)}%` 
+            });
+        }, 600);
+
+        const downloadTimeout = setTimeout(() => {
+            clearInterval(progressInterval);
+            console.error('Instagram download timeout');
+            reject(new Error('Download timeout - please try again'));
+        }, 3 * 60 * 1000); // 3 minute timeout (Instagram videos are usually shorter)
+
+        ytDlpExec.exec(url, options)
+            .then(() => {
+                clearTimeout(downloadTimeout);
+                clearInterval(progressInterval);
+                console.log('✅ Instagram download completed');
+                sendProgress(downloadId, { 
+                    status: 'processing', 
+                    progress: 100, 
+                    stage: '✅ Finalizing...' 
+                });
+                resolve();
+            })
+            .catch((err) => {
+                clearTimeout(downloadTimeout);
+                clearInterval(progressInterval);
+                console.error('Instagram yt-dlp error:', err.message || err);
                 reject(err);
             });
     });

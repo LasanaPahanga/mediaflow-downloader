@@ -632,6 +632,22 @@
   background-clip: text;
 }
 
+/* Instagram specific styles */
+.instagram-logo {
+  background: linear-gradient(135deg, #E1306C 0%, #C13584 40%, #833AB4 80%, #5851DB 100%);
+}
+
+.instagram-badge {
+  background: linear-gradient(135deg, #F77737, #FD1D1D, #E1306C);
+}
+
+.gradient-text-ig {
+  background: linear-gradient(135deg, #E1306C 0%, #C13584 40%, #833AB4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* App layout responsive */
 @media (max-width: 640px) {
   .app-wrapper {
