@@ -885,6 +885,330 @@ function downloadWithYtDlp(downloadId, url, format, outputPath, audioFormat = nu
     });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 📘 FACEBOOK VIDEO DOWNLOAD API ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Helper: Detect platform from URL
+const detectPlatform = (url) => {
+    if (!url) return 'unknown';
+    
+    const youtubePatterns = [
+        /youtube\.com/i,
+        /youtu\.be/i,
+        /youtube-nocookie\.com/i
+    ];
+    
+    const facebookPatterns = [
+        /facebook\.com/i,
+        /fb\.watch/i,
+        /fb\.com/i
+    ];
+    
+    if (youtubePatterns.some(p => p.test(url))) return 'youtube';
+    if (facebookPatterns.some(p => p.test(url))) return 'facebook';
+    
+    return 'unknown';
+};
+
+// API: Detect platform from URL
+app.post('/api/detect-platform', (req, res) => {
+    const { url } = req.body;
+    const platform = detectPlatform(url);
+    res.json({ platform, url });
+});
+
+// API: Get Facebook video info
+app.post('/api/facebook/video-info', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ error: 'URL is required' });
+
+        const platform = detectPlatform(url);
+        if (platform !== 'facebook') {
+            return res.status(400).json({ error: 'Not a valid Facebook URL' });
+        }
+
+        console.log('📘 Fetching Facebook video info:', url);
+
+        const options = {
+            dumpSingleJson: true,
+            noCheckCertificates: true,
+            noWarnings: true,
+            skipDownload: true,
+            noPlaylist: true,
+        };
+        
+        // Use cookies if available for private videos
+        if (hasCookies) options.cookies = cookiesPath;
+
+        const info = await ytDlp(url, options);
+
+        // Process formats - Facebook usually provides combined video+audio formats
+        const formats = [];
+        const seenQualities = new Set();
+
+        if (info.formats) {
+            // Sort by height (quality) descending
+            const sortedFormats = info.formats
+                .filter(f => f.height && f.vcodec !== 'none')
+                .sort((a, b) => (b.height || 0) - (a.height || 0));
+
+            for (const f of sortedFormats) {
+                // Create quality label (HD for 720p+, SD for below)
+                let qualityLabel;
+                if (f.height >= 1080) {
+                    qualityLabel = `${f.height}p (Full HD)`;
+                } else if (f.height >= 720) {
+                    qualityLabel = `${f.height}p (HD)`;
+                } else if (f.height >= 480) {
+                    qualityLabel = `${f.height}p (SD)`;
+                } else {
+                    qualityLabel = `${f.height}p`;
+                }
+
+                // Avoid duplicates based on height
+                if (!seenQualities.has(f.height) && seenQualities.size < 5) {
+                    seenQualities.add(f.height);
+                    
+                    formats.push({
+                        formatId: f.format_id,
+                        quality: qualityLabel,
+                        height: f.height,
+                        width: f.width,
+                        container: f.ext || 'mp4',
+                        hasVideo: true,
+                        hasAudio: f.acodec !== 'none', // Facebook usually includes audio
+                        filesize: f.filesize || f.filesize_approx,
+                        fps: f.fps,
+                        vcodec: f.vcodec,
+                        acodec: f.acodec
+                    });
+                }
+            }
+        }
+
+        // If no formats found with height, try to get any video format
+        if (formats.length === 0 && info.formats) {
+            const videoFormat = info.formats.find(f => f.vcodec !== 'none');
+            if (videoFormat) {
+                formats.push({
+                    formatId: videoFormat.format_id,
+                    quality: 'Best Available',
+                    container: videoFormat.ext || 'mp4',
+                    hasVideo: true,
+                    hasAudio: videoFormat.acodec !== 'none',
+                    filesize: videoFormat.filesize || videoFormat.filesize_approx,
+                });
+            }
+        }
+
+        console.log(`✅ Facebook video found: "${info.title}" with ${formats.length} formats`);
+
+        res.json({
+            title: info.title || 'Facebook Video',
+            thumbnail: info.thumbnail,
+            duration: info.duration,
+            author: info.uploader || info.channel || info.creator,
+            viewCount: info.view_count,
+            formats,
+            platform: 'facebook',
+            isPrivate: info.is_unlisted || false,
+            description: info.description?.substring(0, 200)
+        });
+
+    } catch (error) {
+        console.error('❌ Facebook video info error:', error.message);
+        
+        // Handle specific Facebook errors with friendly messages
+        let errorMessage = 'Failed to fetch Facebook video information';
+        
+        if (error.message?.includes('login') || error.message?.includes('private')) {
+            errorMessage = 'This video is private or requires login';
+        } else if (error.message?.includes('unavailable') || error.message?.includes('not found')) {
+            errorMessage = 'Video unavailable or removed';
+        } else if (error.message?.includes('region') || error.message?.includes('geo')) {
+            errorMessage = 'This video is not available in your region';
+        } else if (error.message?.includes('age')) {
+            errorMessage = 'This video has age restrictions';
+        }
+        
+        res.status(500).json({ error: errorMessage });
+    }
+});
+
+// API: Start Facebook video download
+app.post('/api/facebook/download-start', async (req, res) => {
+    try {
+        const { url, formatId, quality, estimatedSize } = req.body;
+        const downloadId = uuidv4();
+
+        if (!url || !formatId) {
+            return res.status(400).json({ error: 'URL and format are required' });
+        }
+
+        // Check disk space
+        const diskInfo = await checkDiskSpace(estimatedSize || 300 * 1024 * 1024); // Default 300MB
+        if (!diskInfo.sufficient) {
+            return res.status(507).json({ 
+                error: 'Insufficient disk space', 
+                message: diskInfo.message,
+                freeGB: diskInfo.freeGB
+            });
+        }
+
+        console.log(`📘 Starting Facebook download: ${quality || formatId}`);
+
+        res.json({ downloadId, status: 'started', platform: 'facebook', diskSpace: diskInfo });
+
+        // Wait for SSE connection
+        await new Promise((resolve) => {
+            if (activeDownloads.has(downloadId)) {
+                resolve();
+                return;
+            }
+            const timeout = setTimeout(() => {
+                downloadReadyCallbacks.delete(downloadId);
+                resolve();
+            }, 5000);
+            
+            downloadReadyCallbacks.set(downloadId, () => {
+                clearTimeout(timeout);
+                resolve();
+            });
+        });
+
+        await new Promise(r => setTimeout(r, 100));
+
+        // Process Facebook download
+        processFacebookDownload(downloadId, url, formatId);
+
+    } catch (error) {
+        console.error('Facebook download start error:', error);
+        res.status(500).json({ error: 'Failed to start download' });
+    }
+});
+
+// Process Facebook video download
+async function processFacebookDownload(downloadId, url, formatId) {
+    try {
+        sendProgress(downloadId, { 
+            status: 'downloading', 
+            progress: 0, 
+            stage: '📘 Starting Facebook download...' 
+        });
+
+        // Get video info first
+        const infoOptions = { 
+            dumpSingleJson: true, 
+            noWarnings: true,
+            noPlaylist: true
+        };
+        if (hasCookies) infoOptions.cookies = cookiesPath;
+        
+        const info = await ytDlp(url, infoOptions);
+        const title = info.title
+            ? info.title.replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_').substring(0, 100)
+            : 'facebook_video';
+        
+        const outputFilename = `${title}.mp4`;
+        const outputPath = path.join(downloadsDir, `${downloadId}_${outputFilename}`);
+
+        // Facebook downloads are usually simpler - single stream with audio+video
+        await downloadFacebookVideo(downloadId, url, formatId, outputPath);
+
+        sendProgress(downloadId, { 
+            status: 'completed', 
+            filename: outputFilename,
+            downloadId: downloadId,
+            platform: 'facebook'
+        });
+
+    } catch (error) {
+        console.error('❌ Facebook download error:', error);
+        sendProgress(downloadId, { 
+            status: 'error', 
+            message: error.message || 'Download failed' 
+        });
+    }
+}
+
+// Download Facebook video using yt-dlp
+async function downloadFacebookVideo(downloadId, url, formatId, outputPath) {
+    return new Promise((resolve, reject) => {
+        const ytDlpExec = require('yt-dlp-exec');
+
+        const options = {
+            format: formatId,
+            output: outputPath,
+            noWarnings: true,
+            noCheckCertificates: true,
+            noPlaylist: true,
+            // Facebook videos usually don't need merging
+            mergeOutputFormat: 'mp4',
+        };
+
+        if (hasCookies) options.cookies = cookiesPath;
+
+        // Use aria2c if available for faster downloads
+        if (hasAria2c) {
+            options.externalDownloader = aria2cPath;
+            options.externalDownloaderArgs = '-x 16 -s 16 -k 1M --file-allocation=none';
+            console.log('⚡ Using aria2c for faster Facebook download');
+        }
+
+        console.log(`📘 Downloading Facebook video: format=${formatId}`);
+
+        let fakeProgress = 5;
+        const stage = '📘 Downloading Facebook video...';
+
+        sendProgress(downloadId, { 
+            status: 'downloading', 
+            progress: 5, 
+            stage 
+        });
+
+        const progressInterval = setInterval(() => {
+            fakeProgress += Math.random() * 8; // Facebook downloads are usually faster
+            if (fakeProgress >= 95) {
+                fakeProgress = 95;
+            }
+            sendProgress(downloadId, { 
+                status: 'downloading', 
+                progress: Math.round(fakeProgress), 
+                stage: `${stage} ${Math.round(fakeProgress)}%` 
+            });
+        }, 800);
+
+        const downloadTimeout = setTimeout(() => {
+            clearInterval(progressInterval);
+            console.error('Facebook download timeout');
+            reject(new Error('Download timeout - please try again'));
+        }, 5 * 60 * 1000);
+
+        ytDlpExec.exec(url, options)
+            .then(() => {
+                clearTimeout(downloadTimeout);
+                clearInterval(progressInterval);
+                console.log('✅ Facebook download completed');
+                sendProgress(downloadId, { 
+                    status: 'processing', 
+                    progress: 100, 
+                    stage: '✅ Finalizing...' 
+                });
+                resolve();
+            })
+            .catch((err) => {
+                clearTimeout(downloadTimeout);
+                clearInterval(progressInterval);
+                console.error('Facebook yt-dlp error:', err.message || err);
+                reject(err);
+            });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+
 // Get completed download file
 app.get('/api/download-file/:downloadId', (req, res) => {
     const { downloadId } = req.params;
