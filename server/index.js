@@ -1531,8 +1531,342 @@ async function downloadInstagramVideo(downloadId, url, outputPath) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ██╗███╗   ██╗███████╗████████╗ █████╗     ███████╗████████╗ ██████╗ ██████╗ ██╗███████╗███████╗
+// ████████╗██╗██╗  ██╗████████╗ ██████╗ ██╗  ██╗    ██████╗ ██╗     ██████╗ 
+//    ██║   ██║██║ ██╔╝   ██║   ██╔═══██╗██║ ██╔╝    ██╔══██╗██║     ██╔══██╗
+//    ██║   ██║█████╔╝    ██║   ██║   ██║█████╔╝     ██║  ██║██║     ██████╔╝
+//    ██║   ██║██╔═██╗    ██║   ██║   ██║██╔═██╗     ██║  ██║██║     ██╔═══╝ 
+//    ██║   ██║██║  ██╗   ██║   ╚██████╔╝██║  ██╗    ██████╔╝███████╗██║     
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// TikTok video info endpoint
+app.post('/api/tiktok/video-info', async (req, res) => {
+    try {
+        const { url } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        // Validate TikTok URL
+        const tiktokPatterns = [
+            /tiktok\.com\/@[\w.-]+\/video\/\d+/i,  // Standard video URL
+            /tiktok\.com\/t\/\w+/i,                 // Short share URL
+            /vm\.tiktok\.com\/\w+/i,                // VM short URL
+            /vt\.tiktok\.com\/\w+/i,                // VT short URL
+            /tiktok\.com\/.*\/video\/\d+/i,         // Alternative format
+        ];
+
+        const isValidTikTok = tiktokPatterns.some(pattern => pattern.test(url));
+        
+        if (!isValidTikTok) {
+            return res.status(400).json({ error: 'Invalid TikTok URL' });
+        }
+
+        console.log('🎵 Fetching TikTok video info for:', url);
+
+        const options = { 
+            dumpSingleJson: true, 
+            noWarnings: true,
+            noPlaylist: true
+        };
+        
+        // Add cookies if available (helps with rate limits)
+        if (hasCookies) {
+            options.cookies = cookiesPath;
+            console.log('🍪 Using cookies for TikTok');
+        }
+
+        const info = await ytDlp(url, options);
+
+        if (!info) {
+            return res.status(404).json({ error: 'Could not fetch video info' });
+        }
+
+        // Get the best format for TikTok
+        let bestFormat = null;
+        let filesize = null;
+        let quality = 'Best Quality';
+
+        if (info.formats && info.formats.length > 0) {
+            // Find the best MP4 format with video (preferably without watermark)
+            const videoFormats = info.formats.filter(f => 
+                f.vcodec && f.vcodec !== 'none' && f.ext === 'mp4'
+            );
+            
+            if (videoFormats.length > 0) {
+                // TikTok formats: prefer no-watermark versions if available
+                // Look for format_note or format_id indicating no watermark
+                let noWatermarkFormats = videoFormats.filter(f => 
+                    f.format_note?.toLowerCase().includes('no watermark') ||
+                    f.format_id?.toLowerCase().includes('download') ||
+                    f.format_note?.toLowerCase().includes('download')
+                );
+                
+                if (noWatermarkFormats.length > 0) {
+                    bestFormat = noWatermarkFormats.sort((a, b) => (b.height || 0) - (a.height || 0))[0];
+                } else {
+                    bestFormat = videoFormats.sort((a, b) => (b.height || 0) - (a.height || 0))[0];
+                }
+                
+                filesize = bestFormat.filesize || bestFormat.filesize_approx || null;
+                
+                if (bestFormat.height) {
+                    if (bestFormat.height >= 1080) quality = '1080p HD';
+                    else if (bestFormat.height >= 720) quality = '720p HD';
+                    else if (bestFormat.height >= 480) quality = '480p';
+                    else quality = `${bestFormat.height}p`;
+                }
+            } else {
+                // Fallback to any available format
+                bestFormat = info.formats[info.formats.length - 1];
+                filesize = bestFormat?.filesize || bestFormat?.filesize_approx || null;
+            }
+        }
+
+        // Construct response
+        const videoInfo = {
+            title: info.title || info.description?.substring(0, 100) || 'TikTok Video',
+            description: info.description || '',
+            thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || null,
+            duration: info.duration || 0,
+            author: info.uploader || info.creator || info.channel || 'Unknown',
+            uploadDate: info.upload_date || null,
+            viewCount: info.view_count || 0,
+            likeCount: info.like_count || 0,
+            commentCount: info.comment_count || 0,
+            shareCount: info.repost_count || 0,
+            width: bestFormat?.width || info.width || null,
+            height: bestFormat?.height || info.height || null,
+            filesize: filesize,
+            quality: quality,
+            formatId: bestFormat?.format_id || 'best',
+            platform: 'tiktok'
+        };
+
+        console.log(`🎵 TikTok video info fetched: @${videoInfo.author}`);
+        res.json(videoInfo);
+
+    } catch (error) {
+        console.error('TikTok video info error:', error);
+        
+        // Provide more specific error messages
+        if (error.message?.includes('Private') || error.message?.includes('private')) {
+            return res.status(403).json({ 
+                error: 'This TikTok video is private or restricted.' 
+            });
+        }
+        if (error.message?.includes('unavailable') || error.message?.includes('removed')) {
+            return res.status(404).json({ 
+                error: 'This TikTok video is unavailable or has been removed.' 
+            });
+        }
+        if (error.message?.includes('region')) {
+            return res.status(403).json({ 
+                error: 'This video is not available in your region.' 
+            });
+        }
+        if (error.message?.includes('429') || error.message?.includes('rate')) {
+            return res.status(429).json({ 
+                error: 'Too many requests. Please wait a moment and try again.' 
+            });
+        }
+        
+        res.status(500).json({ error: 'Failed to fetch TikTok video info' });
+    }
+});
+
+// TikTok download start endpoint
+app.post('/api/tiktok/download-start', async (req, res) => {
+    try {
+        const { url, removeWatermark, estimatedSize } = req.body;
+        const downloadId = uuidv4();
+
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        // Check disk space
+        const diskInfo = await checkDiskSpace(estimatedSize || 50 * 1024 * 1024); // Default 50MB for TikTok
+        if (!diskInfo.sufficient) {
+            return res.status(507).json({ 
+                error: 'Insufficient disk space', 
+                message: diskInfo.message,
+                freeGB: diskInfo.freeGB
+            });
+        }
+
+        console.log(`🎵 Starting TikTok download (no watermark: ${removeWatermark})`);
+
+        res.json({ downloadId, status: 'started', platform: 'tiktok', diskSpace: diskInfo });
+
+        // Wait for SSE connection
+        await new Promise((resolve) => {
+            if (activeDownloads.has(downloadId)) {
+                resolve();
+                return;
+            }
+            const timeout = setTimeout(() => {
+                downloadReadyCallbacks.delete(downloadId);
+                resolve();
+            }, 5000);
+            
+            downloadReadyCallbacks.set(downloadId, () => {
+                clearTimeout(timeout);
+                resolve();
+            });
+        });
+
+        await new Promise(r => setTimeout(r, 100));
+
+        // Process TikTok download
+        processTikTokDownload(downloadId, url, removeWatermark);
+
+    } catch (error) {
+        console.error('TikTok download start error:', error);
+        res.status(500).json({ error: 'Failed to start download' });
+    }
+});
+
+// Process TikTok video download
+async function processTikTokDownload(downloadId, url, removeWatermark = true) {
+    try {
+        sendProgress(downloadId, { 
+            status: 'downloading', 
+            progress: 0, 
+            stage: '🎵 Starting TikTok download...' 
+        });
+
+        // Get video info first
+        const infoOptions = { 
+            dumpSingleJson: true, 
+            noWarnings: true,
+            noPlaylist: true
+        };
+        if (hasCookies) infoOptions.cookies = cookiesPath;
+        
+        const info = await ytDlp(url, infoOptions);
+        
+        // Create safe filename from author and description
+        let author = info.uploader || info.creator || 'tiktok';
+        let desc = info.description || info.title || 'video';
+        
+        // Clean up the filename
+        author = author.replace(/[^\w\s-]/gi, '').trim().substring(0, 30);
+        desc = desc.replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_').substring(0, 50);
+        
+        if (!author) author = 'tiktok';
+        if (!desc) desc = 'video';
+        
+        const outputFilename = `${author}_${desc}.mp4`;
+        const outputPath = path.join(downloadsDir, `${downloadId}_${outputFilename}`);
+
+        // Download TikTok video
+        await downloadTikTokVideo(downloadId, url, outputPath, removeWatermark);
+
+        sendProgress(downloadId, { 
+            status: 'completed', 
+            filename: outputFilename,
+            downloadId: downloadId,
+            platform: 'tiktok'
+        });
+
+    } catch (error) {
+        console.error('❌ TikTok download error:', error);
+        sendProgress(downloadId, { 
+            status: 'error', 
+            message: error.message || 'Download failed' 
+        });
+    }
+}
+
+// Download TikTok video using yt-dlp
+async function downloadTikTokVideo(downloadId, url, outputPath, removeWatermark = true) {
+    return new Promise(async (resolve, reject) => {
+        const ytDlpExec = require('yt-dlp-exec');
+
+        const options = {
+            output: outputPath,
+            noWarnings: true,
+            noCheckCertificates: true,
+            noPlaylist: true,
+            mergeOutputFormat: 'mp4',
+        };
+
+        if (removeWatermark) {
+            // Method 1: Use format selector to prefer no-watermark formats
+            // TikTok's API provides different format IDs:
+            // - "download" variants = typically no watermark
+            // - "play" variants = typically with watermark
+            // - "bytevc1_*" / "h264_*" = codec specific, may have watermark
+            options.format = 'download_addr-0/download_addr-1/download_addr-2/download_addr-3/download-0/download-1/download-2/download/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio/best';
+            
+            // Method 2: Try TikTok API hostname for better access
+            options.extractorArgs = 'tiktok:api_hostname=api16-normal-c-useast1a.tiktokv.com;tiktok:app_version=34.1.2';
+            
+            console.log('🎵 Attempting no-watermark download...');
+        } else {
+            options.format = 'best[ext=mp4]/best';
+        }
+
+        if (hasCookies) options.cookies = cookiesPath;
+
+        // Use aria2c if available for faster downloads
+        if (hasAria2c) {
+            options.externalDownloader = aria2cPath;
+            options.externalDownloaderArgs = '-x 16 -s 16 -k 1M --file-allocation=none';
+            console.log('⚡ Using aria2c for faster TikTok download');
+        }
+
+        console.log(`🎵 Downloading TikTok video (no watermark: ${removeWatermark})`);
+
+        let fakeProgress = 5;
+        const stage = removeWatermark ? '🎵 Downloading (no watermark)...' : '🎵 Downloading TikTok...';
+
+        sendProgress(downloadId, { 
+            status: 'downloading', 
+            progress: 5, 
+            stage 
+        });
+
+        // TikTok downloads are usually fast
+        const progressInterval = setInterval(() => {
+            fakeProgress += Math.random() * 12;
+            if (fakeProgress >= 95) {
+                fakeProgress = 95;
+            }
+            sendProgress(downloadId, { 
+                status: 'downloading', 
+                progress: Math.round(fakeProgress), 
+                stage: `${stage} ${Math.round(fakeProgress)}%` 
+            });
+        }, 500);
+
+        const downloadTimeout = setTimeout(() => {
+            clearInterval(progressInterval);
+            console.error('TikTok download timeout');
+            reject(new Error('Download timeout - please try again'));
+        }, 2 * 60 * 1000); // 2 minute timeout (TikTok videos are short)
+
+        ytDlpExec.exec(url, options)
+            .then(() => {
+                clearTimeout(downloadTimeout);
+                clearInterval(progressInterval);
+                console.log('✅ TikTok download completed');
+                sendProgress(downloadId, { 
+                    status: 'processing', 
+                    progress: 100, 
+                    stage: '✅ Finalizing...' 
+                });
+                resolve();
+            })
+            .catch((err) => {
+                clearTimeout(downloadTimeout);
+                clearInterval(progressInterval);
+                console.error('TikTok yt-dlp error:', err.message || err);
+                reject(err);
+            });
+    });
+}
 
 // Get completed download file
 app.get('/api/download-file/:downloadId', (req, res) => {

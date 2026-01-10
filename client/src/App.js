@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import VideoDownloader from './components/VideoDownloader';
 import FacebookDownloader from './components/FacebookDownloader';
 import InstagramDownloader from './components/InstagramDownloader';
+import TikTokDownloader from './components/TikTokDownloader';
 import PlatformSelector from './components/PlatformSelector';
-import { Youtube, Facebook, Instagram, Download, Zap, Shield, Heart, ArrowLeft, Film } from 'lucide-react';
+import { Youtube, Facebook, Instagram, Download, Zap, Shield, Heart, ArrowLeft, Film, Music, Sparkles } from 'lucide-react';
 import './App.css';
 
 function App() {
-  const [selectedPlatform, setSelectedPlatform] = useState(null); // null, 'youtube', 'facebook', or 'instagram'
+  const [selectedPlatform, setSelectedPlatform] = useState(null); // null, 'youtube', 'facebook', 'instagram', or 'tiktok'
 
   const handleBackToSelector = () => {
     setSelectedPlatform(null);
@@ -251,6 +252,84 @@ function App() {
               </p>
               <p className="footer-note">
                 Please respect Instagram's Terms of Service and copyright laws
+              </p>
+            </div>
+          </footer>
+        </div>
+
+      </div>
+    );
+  }
+
+  // TikTok Downloader View
+  if (selectedPlatform === 'tiktok') {
+    return (
+      <div className="app-container">
+        {/* Background Decorations */}
+        <div className="bg-decoration bg-decoration-1"></div>
+        <div className="bg-decoration bg-decoration-2"></div>
+        <div className="bg-decoration bg-decoration-3"></div>
+
+        <div className="app-wrapper">
+          {/* Back Button */}
+          <button className="back-button animate-fade-in" onClick={handleBackToSelector}>
+            <ArrowLeft size={18} />
+            <span>All Platforms</span>
+          </button>
+
+          {/* Header Section */}
+          <header className="app-header animate-fade-in">
+            <div className="logo-container">
+              <div className="logo-icon tiktok-logo">
+                <Music size={40} strokeWidth={1.5} />
+              </div>
+              <div className="logo-badge tiktok-badge">
+                <Download size={16} />
+              </div>
+            </div>
+            
+            <h1 className="app-title">
+              TikTok <span className="gradient-text-tiktok">Downloader</span>
+            </h1>
+            
+            <p className="app-subtitle">
+              Download TikTok videos without watermark in best quality.
+              Fast, simple, and instant downloads!
+            </p>
+
+            {/* Feature Pills */}
+            <div className="feature-pills">
+              <div className="feature-pill">
+                <Sparkles size={14} />
+                <span>No Watermark</span>
+              </div>
+              <div className="feature-pill">
+                <Zap size={14} />
+                <span>Instant Download</span>
+              </div>
+              <div className="feature-pill">
+                <Shield size={14} />
+                <span>Best Quality</span>
+              </div>
+            </div>
+          </header>
+          
+          {/* Main Content */}
+          <main className="app-main animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <TikTokDownloader />
+          </main>
+          
+          {/* Footer */}
+          <footer className="app-footer animate-fade-in" style={{ animationDelay: '0.4s' }}>
+            <div className="footer-content">
+              <p className="footer-text">
+                Made with <Heart size={14} className="heart-icon" /> for video enthusiasts
+              </p>
+              <p className="footer-disclaimer">
+                © 2024 MediaFlow Downloader • For educational purposes only
+              </p>
+              <p className="footer-note">
+                Please respect TikTok's Terms of Service and copyright laws
               </p>
             </div>
           </footer>

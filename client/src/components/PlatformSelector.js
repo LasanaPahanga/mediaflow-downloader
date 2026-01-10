@@ -1,5 +1,5 @@
 import React from 'react';
-import { Youtube, Facebook, Instagram, Download, Sparkles, Shield, Zap, Film } from 'lucide-react';
+import { Youtube, Facebook, Instagram, Download, Sparkles, Shield, Zap, Film, Music } from 'lucide-react';
 
 const PlatformSelector = ({ onSelectPlatform }) => {
   return (
@@ -12,7 +12,7 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           MediaFlow <span className="gradient-text">Downloader</span>
         </h1>
         <p className="selector-subtitle">
-          Download your favorite videos from YouTube, Facebook, and Instagram.
+          Download your favorite videos from YouTube, Facebook, Instagram, and TikTok.
           Fast, secure, and completely free!
         </p>
       </div>
@@ -101,6 +101,34 @@ const PlatformSelector = ({ onSelectPlatform }) => {
             Open Instagram Downloader
           </button>
         </div>
+
+        {/* TikTok Card */}
+        <div 
+          className="platform-card tiktok-card"
+          onClick={() => onSelectPlatform('tiktok')}
+        >
+          <div className="platform-icon tiktok-icon">
+            <Music size={48} strokeWidth={1.5} />
+          </div>
+          <h2 className="platform-name">TikTok</h2>
+          <p className="platform-description">
+            Download TikTok videos without watermark in best quality instantly
+          </p>
+          <div className="platform-features">
+            <span className="feature-tag">
+              <Sparkles size={12} />
+              No Watermark
+            </span>
+            <span className="feature-tag">
+              <Zap size={12} />
+              Instant
+            </span>
+          </div>
+          <button className="platform-btn tiktok-btn">
+            <Music size={18} />
+            Open TikTok Downloader
+          </button>
+        </div>
       </div>
 
       <div className="selector-footer">
@@ -111,7 +139,7 @@ const PlatformSelector = ({ onSelectPlatform }) => {
 
       <style>{`
         .platform-selector {
-          max-width: 900px;
+          max-width: 1300px;
           margin: 0 auto;
           padding: 60px 20px;
         }
@@ -153,8 +181,8 @@ const PlatformSelector = ({ onSelectPlatform }) => {
 
         .platform-cards {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: 28px;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 20px;
           margin-bottom: 48px;
         }
 
@@ -162,12 +190,15 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           background: rgba(255, 255, 255, 0.03);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 24px;
-          padding: 40px 32px;
+          padding: 32px 24px;
           text-align: center;
           cursor: pointer;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           position: relative;
           overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
         }
 
         .platform-card::before {
@@ -251,6 +282,21 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           box-shadow: 0 12px 40px rgba(225, 48, 108, 0.35);
         }
 
+        .tiktok-icon {
+          background: linear-gradient(135deg, #000000 0%, #25F4EE 50%, #FE2C55 100%);
+          color: white;
+          box-shadow: 0 12px 40px rgba(254, 44, 85, 0.35);
+        }
+
+        .tiktok-card::before {
+          background: linear-gradient(90deg, #25F4EE, #FE2C55);
+        }
+
+        .tiktok-card:hover {
+          background: rgba(254, 44, 85, 0.08);
+          border-color: rgba(254, 44, 85, 0.3);
+        }
+
         .platform-name {
           font-size: 1.75rem;
           font-weight: 700;
@@ -263,7 +309,7 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           font-size: 0.95rem;
           line-height: 1.6;
           margin-bottom: 20px;
-          min-height: 48px;
+          flex: 1;
         }
 
         .platform-features {
@@ -303,6 +349,7 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           border: none;
           cursor: pointer;
           transition: all 0.3s;
+          margin-top: auto;
         }
 
         .youtube-btn {
@@ -338,6 +385,17 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           transform: translateY(-2px);
         }
 
+        .tiktok-btn {
+          background: linear-gradient(135deg, #25F4EE 0%, #FE2C55 100%);
+          color: white;
+          box-shadow: 0 8px 30px rgba(254, 44, 85, 0.3);
+        }
+
+        .tiktok-btn:hover {
+          box-shadow: 0 12px 40px rgba(254, 44, 85, 0.45);
+          transform: translateY(-2px);
+        }
+
         .selector-footer {
           text-align: center;
         }
@@ -354,6 +412,42 @@ const PlatformSelector = ({ onSelectPlatform }) => {
         @keyframes float {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-10px); }
+        }
+
+        @media (max-width: 1100px) {
+          .platform-cards {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          }
+        }
+
+        @media (max-width: 900px) {
+          .platform-cards {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          }
+
+          .platform-card {
+            padding: 24px 16px;
+          }
+
+          .platform-icon {
+            width: 64px;
+            height: 64px;
+          }
+
+          .platform-name {
+            font-size: 1.25rem;
+          }
+
+          .platform-description {
+            font-size: 0.85rem;
+          }
+
+          .platform-btn {
+            padding: 12px 16px;
+            font-size: 13px;
+          }
         }
 
         @media (max-width: 700px) {
@@ -392,6 +486,10 @@ const PlatformSelector = ({ onSelectPlatform }) => {
           .platform-icon svg {
             width: 36px;
             height: 36px;
+          }
+
+          .platform-description {
+            min-height: auto;
           }
         }
       `}</style>
