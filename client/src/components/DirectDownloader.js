@@ -10,7 +10,7 @@ import {
   HardDrive
 } from 'lucide-react';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://13.61.120.183/api';
 
 const DirectDownloader = () => {
   const [url, setUrl] = useState('');

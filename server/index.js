@@ -85,9 +85,10 @@ if (!hasAria2c) {
 const corsOptions = {
     origin: [
         'http://localhost:3000',                              // Local development
+        'http://13.61.120.183',                               // AWS EC2 Nginx
         'https://mediaflow-downloader.vercel.app',            // Vercel deployment
         'https://mediaflow-downloader-gcdxhfb4p-lasana-pahangas-projects.vercel.app',  // Vercel preview
-        'https://spokesman-dealtime-naturals-lucia.trycloudflare.com'  // CloudFlare Tunnel
+        'https://spokesman-dealtime-naturals-lucia.trycloudflare.com'  // CloudFlare Tunnel (backup)
     ],
     methods: ['GET', 'POST', 'DELETE'],
     credentials: true
