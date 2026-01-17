@@ -77,8 +77,19 @@ if (!hasAria2c) {
     console.log('   Then restart your terminal and the server');
 }
 
+// Configure CORS for production
+const corsOptions = {
+    origin: [
+        'http://localhost:3000',                              // Local development
+        'https://mediaflow-downloader.vercel.app',            // Vercel deployment
+        'https://mediaflow-downloader-gcdxhfb4p-lasana-pahangas-projects.vercel.app'  // Vercel preview
+    ],
+    methods: ['GET', 'POST', 'DELETE'],
+    credentials: true
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Create downloads directory if it doesn't exist
