@@ -202,7 +202,9 @@ const checkCookieHealth = () => {
 const checkDiskSpace = async (requiredBytes = 0) => {
     try {
         // Get disk space for the downloads directory
-        const driveLetter = downloadsDir.charAt(0).toUpperCase();
+        // Resolve to absolute path first to handle relative paths like ./downloads
+        const absolutePath = path.resolve(downloadsDir);
+        const driveLetter = absolutePath.charAt(0).toUpperCase();
         
         if (process.platform === 'win32') {
             // Windows: Use wmic or PowerShell
