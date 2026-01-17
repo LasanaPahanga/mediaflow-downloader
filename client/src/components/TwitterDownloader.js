@@ -80,12 +80,6 @@ const TwitterDownloader = () => {
     return twitterPatterns.some(pattern => pattern.test(inputUrl));
   };
 
-  // Extract tweet ID from URL
-  const extractTweetId = (inputUrl) => {
-    const match = inputUrl.match(/status\/(\d+)/);
-    return match ? match[1] : null;
-  };
-
   const handleUrlSubmit = async (e) => {
     e.preventDefault();
     if (!url.trim()) {

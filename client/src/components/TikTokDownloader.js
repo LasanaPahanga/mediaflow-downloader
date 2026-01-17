@@ -10,7 +10,6 @@ import {
   User, 
   Clock, 
   Music,
-  Lock,
   Globe,
   Heart,
   Eye,

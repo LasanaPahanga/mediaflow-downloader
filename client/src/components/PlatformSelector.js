@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 const PlatformSelector = ({ onSelectPlatform }) => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -7,7 +7,7 @@ const PlatformSelector = ({ onSelectPlatform }) => {
   const [dragOffset, setDragOffset] = useState(0);
   const carouselRef = useRef(null);
 
-  const platforms = [
+  const platforms = useMemo(() => [
     {
       id: 'youtube',
       name: 'YouTube',
@@ -86,7 +86,7 @@ const PlatformSelector = ({ onSelectPlatform }) => {
       description: 'Any video URL',
       features: ['Any Site', 'M3U8/HLS', 'Direct MP4']
     }
-  ];
+  ], []);
 
   const totalItems = platforms.length;
 

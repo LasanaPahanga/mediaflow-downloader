@@ -34,13 +34,10 @@ const VideoDownloader = () => {
   const [activeTab, setActiveTab] = useState('video'); // 'video' or 'audio'
   
   // 🚀 New states for two-step fetching optimization
-  const [loadingMetadata, setLoadingMetadata] = useState(false);
   const [loadingFormats, setLoadingFormats] = useState(false);
-  const [metadataLoaded, setMetadataLoaded] = useState(false);
   const [formatsLoaded, setFormatsLoaded] = useState(false);
   
   // 🍪 Cookie & 💾 Disk space health states
-  const [serverHealth, setServerHealth] = useState(null);
   const [cookieWarning, setCookieWarning] = useState('');
   const [diskWarning, setDiskWarning] = useState('');
   
