@@ -86,7 +86,8 @@ const corsOptions = {
     origin: [
         'http://localhost:3000',                              // Local development
         'https://mediaflow-downloader.vercel.app',            // Vercel deployment
-        'https://mediaflow-downloader-gcdxhfb4p-lasana-pahangas-projects.vercel.app'  // Vercel preview
+        'https://mediaflow-downloader-gcdxhfb4p-lasana-pahangas-projects.vercel.app',  // Vercel preview
+        'https://easy-europe-websites-neo.trycloudflare.com'  // CloudFlare Tunnel
     ],
     methods: ['GET', 'POST', 'DELETE'],
     credentials: true
