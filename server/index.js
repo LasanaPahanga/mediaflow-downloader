@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -15,6 +18,7 @@ ffmpeg.setFfmpegPath(ffmpegStatic);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || 'localhost';
 
 // Store active downloads for progress tracking
 const activeDownloads = new Map();
@@ -93,7 +97,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Create downloads directory if it doesn't exist
-const downloadsDir = path.join(__dirname, 'downloads');
+const downloadsDir = process.env.DOWNLOADS_DIR || path.join(__dirname, 'downloads');
 if (!fs.existsSync(downloadsDir)) {
     fs.mkdirSync(downloadsDir);
 }
@@ -2253,9 +2257,9 @@ async function processDirectDownload(downloadId, url, customFilename) {
 }
 
 // Start server
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📡 API endpoints available at http://localhost:${PORT}/api`);
+app.listen(PORT, HOST, () => {
+    console.log(`🚀 Server running on ${HOST}:${PORT}`);
+    console.log(`📡 API endpoints available at http://${HOST}:${PORT}/api`);
     console.log(`🎬 FFmpeg path: ${ffmpegStatic}`);
 });
 
