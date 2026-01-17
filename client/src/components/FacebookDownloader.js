@@ -36,6 +36,7 @@ const FacebookDownloader = () => {
   const [downloadStage, setDownloadStage] = useState('');
   
   // Server health states
+  const [serverHealth, setServerHealth] = useState(null);
   const [cookieWarning, setCookieWarning] = useState('');
   const [diskWarning, setDiskWarning] = useState('');
   
