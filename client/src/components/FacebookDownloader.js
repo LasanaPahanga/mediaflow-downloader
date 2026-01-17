@@ -36,6 +36,7 @@ const FacebookDownloader = () => {
   const [downloadStage, setDownloadStage] = useState('');
   
   // Server health states
+  // eslint-disable-next-line no-unused-vars
   const [_serverHealth, setServerHealth] = useState(null);
   const [cookieWarning, setCookieWarning] = useState('');
   const [diskWarning, setDiskWarning] = useState('');
