@@ -274,6 +274,54 @@ const cleanupOldFiles = () => {
 };
 setInterval(cleanupOldFiles, 1800000);
 
+// 🔧 Helper: Clean YouTube URL to extract only video ID (strip playlist params, si params, etc.)
+const cleanYouTubeUrl = (url) => {
+    try {
+        // First, try to extract video ID using regex (most reliable)
+        const patterns = [
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+            /^([a-zA-Z0-9_-]{11})$/ // Just the ID
+        ];
+        
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match && match[1]) {
+                const videoId = match[1];
+                console.log(`🔧 Extracted video ID: ${videoId} from URL`);
+                return `https://www.youtube.com/watch?v=${videoId}`;
+            }
+        }
+        
+        // Fallback: try URL parsing
+        const urlObj = new URL(url);
+        
+        // Handle youtu.be short links
+        if (urlObj.hostname === 'youtu.be') {
+            const videoId = urlObj.pathname.slice(1);
+            if (videoId && videoId.length >= 11) {
+                const cleanId = videoId.substring(0, 11);
+                console.log(`🔧 Cleaned youtu.be URL: ${cleanId}`);
+                return `https://www.youtube.com/watch?v=${cleanId}`;
+            }
+        }
+        
+        // Handle youtube.com links
+        if (urlObj.hostname.includes('youtube.com')) {
+            const videoId = urlObj.searchParams.get('v');
+            if (videoId) {
+                console.log(`🔧 Cleaned youtube.com URL: ${videoId}`);
+                return `https://www.youtube.com/watch?v=${videoId}`;
+            }
+        }
+        
+        // Return original if can't parse
+        return url;
+    } catch (e) {
+        console.error('URL cleaning error:', e.message);
+        return url;
+    }
+};
+
 // Health check
 app.get('/api/health', async (req, res) => {
     const diskInfo = await checkDiskSpace();
@@ -292,9 +340,11 @@ app.get('/api/health', async (req, res) => {
 // 🚀 STEP 1: Fast Metadata Fetch
 app.post('/api/video-metadata', async (req, res) => {
     try {
-        const { url } = req.body;
+        let { url } = req.body;
         if (!url) return res.status(400).json({ error: 'URL is required' });
 
+        // Clean YouTube URL to strip playlist parameters
+        url = cleanYouTubeUrl(url);
         console.log('Fetching metadata for:', url);
         
         const options = {
@@ -329,9 +379,11 @@ app.post('/api/video-metadata', async (req, res) => {
 // 🚀 STEP 2: Get Formats
 app.post('/api/video-formats', async (req, res) => {
     try {
-        const { url } = req.body;
+        let { url } = req.body;
         if (!url) return res.status(400).json({ error: 'URL is required' });
 
+        // Clean YouTube URL to strip playlist parameters
+        url = cleanYouTubeUrl(url);
         console.log('Fetching formats for:', url);
 
         const options = {
@@ -352,27 +404,49 @@ app.post('/api/video-formats', async (req, res) => {
         const seenQualities = new Set();
 
         // Process formats - video
+        // 🔧 FIX: Use quality-based selectors instead of raw format IDs to avoid HLS (m3u8) formats
+        // HLS formats (like itag 91-96) are fragmented and don't work with aria2c
         if (info.formats) {
-            // Get video formats
+            // Get available resolutions from non-HLS formats (prefer MP4/DASH)
             const videoFormats = info.formats
-                .filter(f => f.vcodec !== 'none' && f.height)
+                .filter(f => f.vcodec !== 'none' && f.height && f.protocol !== 'm3u8_native' && f.protocol !== 'm3u8')
                 .sort((a, b) => (b.height || 0) - (a.height || 0));
+
+            // Add "Best Quality" option first
+            formats.push({
+                formatId: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+                quality: 'Best Quality',
+                container: 'mp4',
+                hasVideo: true,
+                hasAudio: true,
+                filesize: null,
+                type: 'video',
+                fps: null,
+                vcodec: 'auto',
+                acodec: 'auto',
+                isQualitySelector: true
+            });
+            seenQualities.add('Best Quality');
 
             for (const f of videoFormats) {
                 const quality = `${f.height}p`;
-                if (!seenQualities.has(quality) && seenQualities.size < 5) {
+                if (!seenQualities.has(quality) && seenQualities.size < 6) {
                     seenQualities.add(quality);
+                    // 🔧 Use quality-based format selector instead of specific format ID
+                    // This lets yt-dlp pick the best MP4/DASH format at this resolution
+                    const formatSelector = `bestvideo[height<=${f.height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${f.height}]+bestaudio/best[height<=${f.height}]`;
                     formats.push({
-                        formatId: f.format_id,
+                        formatId: formatSelector,
                         quality: quality,
-                        container: f.ext,
+                        container: 'mp4',
                         hasVideo: true,
                         hasAudio: f.acodec !== 'none',
                         filesize: f.filesize || f.filesize_approx,
                         type: 'video',
                         fps: f.fps,
                         vcodec: f.vcodec,
-                        acodec: f.acodec
+                        acodec: f.acodec,
+                        isQualitySelector: true
                     });
                 }
             }
@@ -425,8 +499,11 @@ app.post('/api/video-formats', async (req, res) => {
 // Legacy endpoint for compatibility
 app.post('/api/video-info', async (req, res) => {
     try {
-        const { url } = req.body;
+        let { url } = req.body;
         if (!url) return res.status(400).json({ error: 'URL is required' });
+
+        // Clean YouTube URL to strip playlist parameters
+        url = cleanYouTubeUrl(url);
 
         const options = {
             dumpSingleJson: true,
@@ -445,24 +522,42 @@ app.post('/api/video-info', async (req, res) => {
         const formats = [];
         const seenQualities = new Set();
 
+        // 🔧 FIX: Use quality-based selectors to avoid HLS (m3u8) formats
         if (info.formats) {
             const videoFormats = info.formats
-                .filter(f => f.vcodec !== 'none' && f.height)
+                .filter(f => f.vcodec !== 'none' && f.height && f.protocol !== 'm3u8_native' && f.protocol !== 'm3u8')
                 .sort((a, b) => (b.height || 0) - (a.height || 0));
+
+            // Add "Best Quality" option first
+            formats.push({
+                formatId: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+                itag: 'best',
+                quality: 'Best Quality',
+                container: 'mp4',
+                hasVideo: true,
+                hasAudio: true,
+                filesize: null,
+                type: 'video',
+                isQualitySelector: true
+            });
+            seenQualities.add('Best Quality');
 
             for (const f of videoFormats) {
                 const quality = `${f.height}p`;
-                if (!seenQualities.has(quality) && seenQualities.size < 5) {
+                if (!seenQualities.has(quality) && seenQualities.size < 6) {
                     seenQualities.add(quality);
+                    // Use quality-based format selector
+                    const formatSelector = `bestvideo[height<=${f.height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${f.height}]+bestaudio/best[height<=${f.height}]`;
                     formats.push({
-                        formatId: f.format_id,
-                        itag: f.format_id, // compatibility
+                        formatId: formatSelector,
+                        itag: formatSelector,
                         quality: quality,
-                        container: f.ext,
+                        container: 'mp4',
                         hasVideo: true,
                         hasAudio: f.acodec !== 'none',
                         filesize: f.filesize || f.filesize_approx,
                         type: 'video',
+                        isQualitySelector: true
                     });
                 }
             }
@@ -546,13 +641,16 @@ const sendProgress = (downloadId, data) => {
 // Start download with yt-dlp
 app.post('/api/download-start', async (req, res) => {
     try {
-        const { url, itag, formatId, convertToMp3, mp3Bitrate, mergeAudio, estimatedSize } = req.body;
+        let { url, itag, formatId, convertToMp3, mp3Bitrate, mergeAudio, estimatedSize } = req.body;
         const downloadId = uuidv4();
         const format = formatId || itag;
 
         if (!url || !format) {
             return res.status(400).json({ error: 'URL and format are required' });
         }
+
+        // Clean YouTube URL to strip playlist parameters
+        url = cleanYouTubeUrl(url);
 
         // 💾 Check disk space before starting download
         const diskInfo = await checkDiskSpace(estimatedSize || 500 * 1024 * 1024); // Default 500MB estimate
@@ -688,11 +786,15 @@ async function downloadParallelMerge(downloadId, url, videoFormat, outputPath, i
         if (hasCookies) baseOptions.cookies = cookiesPath;
         
         // 🚀 Use aria2c for multi-threaded downloads if available
-        if (hasAria2c) {
+        // ⚠️ DISABLED for YouTube: aria2c doesn't work with YouTube HLS (m3u8) streams
+        const isYouTubeUrl = url.includes('youtube.com') || url.includes('youtu.be');
+        if (hasAria2c && !isYouTubeUrl) {
             baseOptions.externalDownloader = aria2cPath;
             // Fixed: proper argument format for yt-dlp external downloader
             baseOptions.externalDownloaderArgs = '-x 16 -s 16 -k 1M --file-allocation=none';
             console.log('⚡ Using aria2c with 16 connections for faster download');
+        } else if (isYouTubeUrl) {
+            console.log('📺 YouTube detected - using native yt-dlp downloader for parallel merge');
         }
 
         // Track progress for both downloads
@@ -835,11 +937,17 @@ function downloadWithYtDlp(downloadId, url, format, outputPath, audioFormat = nu
         }
         
         // 🚀 Use aria2c for multi-threaded downloads if available
-        if (hasAria2c && !audioFormat) {
+        // ⚠️ DISABLED for YouTube: aria2c doesn't work with YouTube HLS (m3u8) streams
+        // YouTube streams have IP-bound, time-limited fragment URLs that fail with 403
+        // when downloaded in parallel with aria2c. Let yt-dlp handle it natively.
+        const isYouTubeUrl = url.includes('youtube.com') || url.includes('youtu.be');
+        if (hasAria2c && !audioFormat && !isYouTubeUrl) {
             options.externalDownloader = aria2cPath;
             // Fixed: proper argument format for yt-dlp external downloader
             options.externalDownloaderArgs = '-x 16 -s 16 -k 1M --file-allocation=none';
             console.log('⚡ Using aria2c with 16 connections');
+        } else if (isYouTubeUrl) {
+            console.log('📺 YouTube detected - using native yt-dlp downloader (more stable)');
         }
         
         if (audioFormat === 'mp3') {
@@ -923,9 +1031,16 @@ const detectPlatform = (url) => {
         /instagr\.am/i
     ];
     
+    const twitterPatterns = [
+        /twitter\.com/i,
+        /x\.com/i,
+        /t\.co/i
+    ];
+    
     if (youtubePatterns.some(p => p.test(url))) return 'youtube';
     if (facebookPatterns.some(p => p.test(url))) return 'facebook';
     if (instagramPatterns.some(p => p.test(url))) return 'instagram';
+    if (twitterPatterns.some(p => p.test(url))) return 'twitter';
     
     return 'unknown';
 };
@@ -976,14 +1091,20 @@ app.post('/api/facebook/video-info', async (req, res) => {
             for (const f of sortedFormats) {
                 // Create quality label (HD for 720p+, SD for below)
                 let qualityLabel;
+                let formatSelector; // Use quality-based selector, NOT format_id
+                
                 if (f.height >= 1080) {
                     qualityLabel = `${f.height}p (Full HD)`;
+                    formatSelector = 'bestvideo[height>=1080]+bestaudio/best[height>=1080]/best';
                 } else if (f.height >= 720) {
                     qualityLabel = `${f.height}p (HD)`;
+                    formatSelector = 'bestvideo[height>=720]+bestaudio/best[height>=720]/best';
                 } else if (f.height >= 480) {
                     qualityLabel = `${f.height}p (SD)`;
+                    formatSelector = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best';
                 } else {
                     qualityLabel = `${f.height}p`;
+                    formatSelector = 'best';
                 }
 
                 // Avoid duplicates based on height
@@ -991,7 +1112,8 @@ app.post('/api/facebook/video-info', async (req, res) => {
                     seenQualities.add(f.height);
                     
                     formats.push({
-                        formatId: f.format_id,
+                        // Use quality-based selector instead of unstable format_id
+                        formatId: formatSelector,
                         quality: qualityLabel,
                         height: f.height,
                         width: f.width,
@@ -1012,7 +1134,7 @@ app.post('/api/facebook/video-info', async (req, res) => {
             const videoFormat = info.formats.find(f => f.vcodec !== 'none');
             if (videoFormat) {
                 formats.push({
-                    formatId: videoFormat.format_id,
+                    formatId: 'best', // Use 'best' selector for Facebook
                     quality: 'Best Available',
                     container: videoFormat.ext || 'mp4',
                     hasVideo: true,
@@ -1020,6 +1142,18 @@ app.post('/api/facebook/video-info', async (req, res) => {
                     filesize: videoFormat.filesize || videoFormat.filesize_approx,
                 });
             }
+        }
+
+        // Always add a "Best Quality" option at the top for Facebook
+        if (formats.length === 0 || !formats.find(f => f.formatId === 'best')) {
+            formats.unshift({
+                formatId: 'best',
+                quality: 'Best Quality (Auto)',
+                container: 'mp4',
+                hasVideo: true,
+                hasAudio: true,
+                filesize: null,
+            });
         }
 
         console.log(`✅ Facebook video found: "${info.title}" with ${formats.length} formats`);
@@ -1177,6 +1311,9 @@ async function downloadFacebookVideo(downloadId, url, formatId, outputPath) {
         }
 
         console.log(`📘 Downloading Facebook video: format=${formatId}`);
+
+        // For Facebook, formatId is actually a quality selector like 'best' or 'bestvideo+bestaudio'
+        // This is intentional because Facebook format IDs are unstable and change per request
 
         let fakeProgress = 5;
         const stage = '📘 Downloading Facebook video...';
@@ -1898,9 +2035,527 @@ app.get('/api/download-file/:downloadId', (req, res) => {
     });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ██████╗ ██╗██████╗ ███████╗ ██████╗████████╗    ██╗   ██╗██████╗ ██╗     
+// ██╔══██╗██║██╔══██╗██╔════╝██╔════╝╚══██╔══╝    ██║   ██║██╔══██╗██║     
+// ██║  ██║██║██████╔╝█████╗  ██║        ██║       ██║   ██║██████╔╝██║     
+// ██████╔╝██║██╔══██╗██╔══╝  ██║        ██║       ██║   ██║██║ ██╗ ██║     
+// ██████╔╝██║██║  ██║███████╗╚██████╗   ██║       ╚██████╔╝██║  ██╗███████╗
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Direct URL download endpoint (for googlevideo.com and other direct stream URLs)
+app.post('/api/direct/download-start', async (req, res) => {
+    try {
+        const { url, filename } = req.body;
+        const downloadId = uuidv4();
+
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        // Validate that it's a direct video URL
+        const directUrlPatterns = [
+            /googlevideo\.com\/videoplayback/i,
+            /\.googlevideo\.com/i,
+            /ytimg\.com/i,
+            /\.mp4(\?|$)/i,
+            /\.webm(\?|$)/i,
+            /\.mkv(\?|$)/i,
+        ];
+
+        const isDirectUrl = directUrlPatterns.some(pattern => pattern.test(url));
+        
+        if (!isDirectUrl) {
+            return res.status(400).json({ 
+                error: 'Invalid direct URL. Supported: googlevideo.com, direct .mp4/.webm links' 
+            });
+        }
+
+        // Check disk space (estimate 500MB for safety)
+        const diskInfo = await checkDiskSpace(500 * 1024 * 1024);
+        if (!diskInfo.sufficient) {
+            return res.status(507).json({ 
+                error: 'Insufficient disk space', 
+                message: diskInfo.message,
+                freeGB: diskInfo.freeGB
+            });
+        }
+
+        console.log(`📥 Starting direct URL download`);
+
+        res.json({ downloadId, status: 'started', platform: 'direct', diskSpace: diskInfo });
+
+        // Wait for SSE connection
+        await new Promise((resolve) => {
+            if (activeDownloads.has(downloadId)) {
+                resolve();
+                return;
+            }
+            const timeout = setTimeout(() => {
+                downloadReadyCallbacks.delete(downloadId);
+                resolve();
+            }, 5000);
+            
+            downloadReadyCallbacks.set(downloadId, () => {
+                clearTimeout(timeout);
+                resolve();
+            });
+        });
+
+        await new Promise(r => setTimeout(r, 100));
+
+        // Process direct download
+        processDirectDownload(downloadId, url, filename);
+
+    } catch (error) {
+        console.error('Direct download start error:', error);
+        res.status(500).json({ error: 'Failed to start download' });
+    }
+});
+
+// Process direct URL download
+async function processDirectDownload(downloadId, url, customFilename) {
+    const https = require('https');
+    const http = require('http');
+    
+    try {
+        sendProgress(downloadId, { 
+            status: 'downloading', 
+            progress: 0, 
+            stage: '📥 Starting direct download...' 
+        });
+
+        // Determine filename
+        let filename = customFilename || 'video';
+        
+        // Try to extract filename from URL or use timestamp
+        if (!customFilename) {
+            const urlPath = new URL(url).pathname;
+            const ext = url.includes('.webm') ? '.webm' : '.mp4';
+            filename = `direct_video_${Date.now()}${ext}`;
+        }
+        
+        // Ensure proper extension
+        if (!filename.match(/\.(mp4|webm|mkv|m4a|mp3)$/i)) {
+            filename += '.mp4';
+        }
+
+        const outputPath = path.join(downloadsDir, `${downloadId}_${filename}`);
+        const fileStream = fs.createWriteStream(outputPath);
+
+        const protocol = url.startsWith('https') ? https : http;
+
+        const request = protocol.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Accept-Encoding': 'identity',
+                'Connection': 'keep-alive',
+            }
+        }, (response) => {
+            // Handle redirects
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                console.log('📥 Following redirect...');
+                processDirectDownload(downloadId, response.headers.location, customFilename);
+                return;
+            }
+
+            if (response.statusCode !== 200) {
+                sendProgress(downloadId, { 
+                    status: 'error', 
+                    message: `HTTP Error: ${response.statusCode}` 
+                });
+                return;
+            }
+
+            const totalSize = parseInt(response.headers['content-length'], 10) || 0;
+            let downloadedSize = 0;
+            let lastProgressUpdate = Date.now();
+
+            console.log(`📥 Direct download started (${totalSize ? (totalSize / 1024 / 1024).toFixed(2) + 'MB' : 'unknown size'})`);
+
+            response.on('data', (chunk) => {
+                downloadedSize += chunk.length;
+                
+                // Update progress every 500ms
+                if (Date.now() - lastProgressUpdate > 500) {
+                    const progress = totalSize ? Math.round((downloadedSize / totalSize) * 100) : 0;
+                    const downloadedMB = (downloadedSize / 1024 / 1024).toFixed(2);
+                    const totalMB = totalSize ? (totalSize / 1024 / 1024).toFixed(2) : '?';
+                    
+                    sendProgress(downloadId, { 
+                        status: 'downloading', 
+                        progress: progress || Math.min(95, Math.round(downloadedSize / 1024 / 1024)), 
+                        stage: `📥 Downloading... ${downloadedMB}MB / ${totalMB}MB` 
+                    });
+                    lastProgressUpdate = Date.now();
+                }
+            });
+
+            response.pipe(fileStream);
+
+            fileStream.on('finish', () => {
+                fileStream.close();
+                console.log('✅ Direct download completed');
+                
+                sendProgress(downloadId, { 
+                    status: 'completed', 
+                    filename: filename,
+                    downloadId: downloadId,
+                    platform: 'direct'
+                });
+            });
+
+            fileStream.on('error', (err) => {
+                fs.unlink(outputPath, () => {});
+                sendProgress(downloadId, { 
+                    status: 'error', 
+                    message: err.message || 'File write error' 
+                });
+            });
+        });
+
+        request.on('error', (err) => {
+            console.error('❌ Direct download error:', err);
+            sendProgress(downloadId, { 
+                status: 'error', 
+                message: err.message || 'Download failed' 
+            });
+        });
+
+        // Timeout after 10 minutes
+        request.setTimeout(10 * 60 * 1000, () => {
+            request.destroy();
+            sendProgress(downloadId, { 
+                status: 'error', 
+                message: 'Download timeout' 
+            });
+        });
+
+    } catch (error) {
+        console.error('❌ Direct download error:', error);
+        sendProgress(downloadId, { 
+            status: 'error', 
+            message: error.message || 'Download failed' 
+        });
+    }
+}
+
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 API endpoints available at http://localhost:${PORT}/api`);
     console.log(`🎬 FFmpeg path: ${ffmpegStatic}`);
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ██╗  ██╗    ██╗████████╗██╗    ██╗██╗████████╗████████╗███████╗██████╗ 
+//  ╚██╗██╔╝   ██╔╝╚══██╔══╝██║    ██║██║╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
+//   ╚███╔╝   ██╔╝    ██║   ██║ █╗ ██║██║   ██║      ██║   █████╗  ██████╔╝
+//   ██╔██╗  ██╔╝     ██║   ██║███╗██║██║   ██║      ██║   ██╔══╝  ██╔══██╗
+//  ██╔╝ ██╗██╔╝      ██║   ╚███╔███╔╝██║   ██║      ██║   ███████╗██║  ██║
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// X (Twitter) video info endpoint
+app.post('/api/twitter/video-info', async (req, res) => {
+    try {
+        const { url } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        // Validate Twitter/X URL
+        const twitterPatterns = [
+            /(?:twitter\.com|x\.com)\/\w+\/status\/\d+/i,
+            /(?:mobile\.)?twitter\.com\/\w+\/status\/\d+/i,
+            /(?:mobile\.)?x\.com\/\w+\/status\/\d+/i,
+            /t\.co\/\w+/i,
+        ];
+
+        const isValidTwitter = twitterPatterns.some(pattern => pattern.test(url));
+        
+        if (!isValidTwitter) {
+            return res.status(400).json({ error: 'Invalid X (Twitter) URL' });
+        }
+
+        console.log('🐦 Fetching X (Twitter) video info for:', url);
+
+        const options = { 
+            dumpSingleJson: true, 
+            noWarnings: true,
+            noPlaylist: true
+        };
+        
+        // Add cookies if available (helps with age-restricted content)
+        if (hasCookies) {
+            options.cookies = cookiesPath;
+            console.log('🍪 Using cookies for Twitter');
+        }
+
+        const info = await ytDlp(url, options);
+
+        if (!info) {
+            return res.status(404).json({ error: 'Could not fetch video info' });
+        }
+
+        // Check if this tweet has video
+        if (!info.formats || info.formats.length === 0) {
+            return res.status(400).json({ error: 'This tweet does not contain a video' });
+        }
+
+        // Get video formats - Twitter provides direct MP4 URLs
+        const formats = [];
+        const seenBitrates = new Set();
+
+        // Log all available formats for debugging
+        console.log('📋 All formats:', info.formats?.map(f => ({
+            id: f.format_id,
+            ext: f.ext,
+            vcodec: f.vcodec,
+            protocol: f.protocol,
+            height: f.height,
+            tbr: f.tbr
+        })));
+
+        // Filter for video formats - be more flexible with filtering
+        const videoFormats = info.formats
+            .filter(f => {
+                // Accept MP4 or formats with video codec
+                const hasVideo = f.vcodec && f.vcodec !== 'none';
+                const isMp4 = f.ext === 'mp4';
+                const isNotHls = f.protocol !== 'm3u8_native' && f.protocol !== 'm3u8';
+                // Accept if it's MP4 OR has video and is not HLS
+                return (isMp4 || hasVideo) && isNotHls;
+            })
+            .sort((a, b) => (b.tbr || b.vbr || b.height || 0) - (a.tbr || a.vbr || a.height || 0));
+
+        console.log(`📺 Found ${videoFormats.length} video formats after filtering`);
+
+        // Always add a "Best Quality (Auto)" option first
+        formats.push({
+            formatId: 'best',
+            quality: 'Best Quality (Auto)',
+            height: null,
+            width: null,
+            bitrate: null,
+            filesize: null,
+            ext: 'mp4',
+            isAuto: true
+        });
+
+        for (const f of videoFormats) {
+            const bitrate = f.tbr || f.vbr || 0;
+            const bitrateKey = Math.round(bitrate / 100) * 100; // Round to nearest 100
+            
+            // Skip if we've seen this bitrate (avoid duplicates)
+            if (seenBitrates.has(bitrateKey) && bitrateKey > 0) continue;
+            if (bitrateKey > 0) seenBitrates.add(bitrateKey);
+            
+            // Determine quality label
+            let quality = 'SD';
+            if (f.height >= 1080) quality = '1080p HD';
+            else if (f.height >= 720) quality = '720p HD';
+            else if (f.height >= 480) quality = '480p';
+            else if (f.height >= 360) quality = '360p';
+            else if (f.height) quality = `${f.height}p`;
+            else if (bitrate >= 2000) quality = 'High Quality';
+            else if (bitrate >= 800) quality = 'Medium Quality';
+            else if (bitrate > 0) quality = 'Low Quality';
+            else quality = 'Standard';
+
+            formats.push({
+                formatId: f.format_id,
+                quality: quality,
+                height: f.height,
+                width: f.width,
+                bitrate: Math.round(bitrate),
+                filesize: f.filesize || f.filesize_approx,
+                ext: f.ext || 'mp4',
+                url: f.url
+            });
+            
+            // Limit to 5 quality options max (plus the auto option)
+            if (formats.length >= 6) break;
+        }
+
+        // Check if this is a GIF (Twitter GIFs are MP4 loops)
+        const isGif = info.format_note?.toLowerCase().includes('gif') || 
+                      info.title?.toLowerCase().includes('gif') ||
+                      (info.duration && info.duration < 10 && formats.length === 1);
+
+        // Extract tweet stats
+        const tweetId = url.match(/status\/(\d+)/)?.[1];
+
+        res.json({
+            title: info.description || info.title || 'Twitter Video',
+            author: info.uploader_id || info.uploader,
+            authorName: info.uploader || info.channel,
+            thumbnail: info.thumbnail,
+            duration: info.duration,
+            viewCount: info.view_count,
+            likeCount: info.like_count,
+            retweetCount: info.repost_count,
+            replyCount: info.comment_count,
+            formats: formats,
+            isGif: isGif,
+            tweetId: tweetId,
+            platform: 'twitter'
+        });
+
+        console.log(`✅ Twitter video info fetched: ${formats.length} quality options`);
+
+    } catch (error) {
+        console.error('❌ Twitter video info error:', error.message);
+        
+        // Parse specific errors
+        if (error.message?.includes('Private') || error.message?.includes('protected')) {
+            return res.status(403).json({ error: 'This tweet is from a private/protected account' });
+        }
+        if (error.message?.includes('unavailable') || error.message?.includes('not exist')) {
+            return res.status(404).json({ error: 'This tweet has been deleted or is unavailable' });
+        }
+        if (error.message?.includes('age') || error.message?.includes('nsfw')) {
+            return res.status(403).json({ error: 'Age-restricted content requires login' });
+        }
+        
+        res.status(500).json({ error: 'Failed to fetch Twitter video info' });
+    }
+});
+
+// X (Twitter) download endpoint
+app.post('/api/twitter/download-start', async (req, res) => {
+    try {
+        const { url, formatId, title } = req.body;
+        const downloadId = uuidv4();
+
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        // Check disk space
+        const diskInfo = await checkDiskSpace(200 * 1024 * 1024); // 200MB estimate for Twitter
+        if (!diskInfo.sufficient) {
+            return res.status(507).json({ 
+                error: 'Insufficient disk space', 
+                message: diskInfo.message 
+            });
+        }
+
+        res.json({ downloadId, status: 'started', platform: 'twitter' });
+
+        // Wait for SSE connection
+        await new Promise((resolve) => {
+            if (activeDownloads.has(downloadId)) {
+                resolve();
+                return;
+            }
+            const timeout = setTimeout(() => {
+                downloadReadyCallbacks.delete(downloadId);
+                resolve();
+            }, 5000);
+            
+            downloadReadyCallbacks.set(downloadId, () => {
+                clearTimeout(timeout);
+                resolve();
+            });
+        });
+
+        await new Promise(r => setTimeout(r, 100));
+
+        // Process Twitter download
+        processTwitterDownload(downloadId, url, formatId, title);
+
+    } catch (error) {
+        console.error('❌ Twitter download start error:', error);
+        res.status(500).json({ error: 'Failed to start download' });
+    }
+});
+
+// Process Twitter video download
+async function processTwitterDownload(downloadId, url, formatId, customTitle) {
+    try {
+        sendProgress(downloadId, { status: 'downloading', progress: 5, stage: '🐦 Fetching video...' });
+
+        const ytDlpExec = require('yt-dlp-exec');
+
+        // Get video info first
+        const infoOptions = { 
+            dumpSingleJson: true, 
+            noWarnings: true,
+            noPlaylist: true
+        };
+        if (hasCookies) infoOptions.cookies = cookiesPath;
+
+        const info = await ytDlp(url, infoOptions);
+        
+        // Clean title for filename
+        let title = customTitle || info.description || info.title || 'twitter_video';
+        title = title.replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_').substring(0, 80);
+        
+        const outputFilename = `${title}.mp4`;
+        const outputPath = path.join(downloadsDir, `${downloadId}_${outputFilename}`);
+
+        sendProgress(downloadId, { status: 'downloading', progress: 15, stage: '📥 Starting download...' });
+
+        // Build download options
+        const downloadOptions = {
+            output: outputPath,
+            noWarnings: true,
+            noCheckCertificates: true,
+            noPlaylist: true,
+        };
+
+        if (formatId) {
+            downloadOptions.format = formatId;
+        } else {
+            // Best quality MP4
+            downloadOptions.format = 'best[ext=mp4]/best';
+        }
+
+        if (hasCookies) {
+            downloadOptions.cookies = cookiesPath;
+        }
+
+        // 🚀 Twitter videos are direct MP4 - can use aria2c for faster downloads!
+        if (hasAria2c) {
+            downloadOptions.externalDownloader = aria2cPath;
+            downloadOptions.externalDownloaderArgs = '-x 16 -s 16 -k 1M --file-allocation=none';
+            console.log('⚡ Using aria2c for Twitter download');
+        }
+
+        console.log('🐦 Starting Twitter download:', url);
+
+        // Simulate progress
+        let fakeProgress = 15;
+        const progressInterval = setInterval(() => {
+            fakeProgress += Math.random() * 12;
+            if (fakeProgress >= 90) fakeProgress = 90;
+            sendProgress(downloadId, { 
+                status: 'downloading', 
+                progress: Math.round(fakeProgress), 
+                stage: `⚡ Downloading... ${Math.round(fakeProgress)}%` 
+            });
+        }, 500);
+
+        // Execute download
+        await ytDlpExec.exec(url, downloadOptions);
+
+        clearInterval(progressInterval);
+        
+        console.log('✅ Twitter download completed');
+        sendProgress(downloadId, { 
+            status: 'completed', 
+            filename: outputFilename,
+            downloadId: downloadId,
+            platform: 'twitter'
+        });
+
+    } catch (error) {
+        console.error('❌ Twitter download error:', error);
+        sendProgress(downloadId, { 
+            status: 'error', 
+            message: error.message || 'Twitter download failed' 
+        });
+    }
+}

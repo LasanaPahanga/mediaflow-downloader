@@ -374,6 +374,14 @@ const VideoDownloader = () => {
         </div>
       )}
 
+      {/* Supported Video Types Banner */}
+      <div className="info-banner supported-types-banner" style={{ marginBottom: '20px', background: 'linear-gradient(135deg, rgba(255, 0, 0, 0.1) 0%, rgba(255, 0, 0, 0.05) 100%)', border: '1px solid rgba(255, 0, 0, 0.2)' }}>
+        <Video size={18} style={{ color: '#ff0000' }} />
+        <span>
+          <strong>Supported:</strong> Videos • Shorts • Music • Live Streams • Playlists • Age-Restricted (with cookies)
+        </span>
+      </div>
+
       {/* URL Input Card */}
       <div className="glass-card input-card">
         <div className="card-header">

@@ -267,6 +267,25 @@ const FacebookDownloader = () => {
         </div>
       )}
 
+      {/* Supported Video Types */}
+      <div className="supported-types-banner" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '14px 20px',
+        marginBottom: '20px',
+        borderRadius: '12px',
+        background: 'linear-gradient(135deg, rgba(24, 119, 242, 0.1) 0%, rgba(24, 119, 242, 0.05) 100%)',
+        border: '1px solid rgba(24, 119, 242, 0.2)',
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: '0.9rem'
+      }}>
+        <Video size={20} style={{ color: '#1877F2', flexShrink: 0 }} />
+        <span>
+          <strong style={{ color: '#1877F2' }}>Supported:</strong> Videos • Reels • Watch • Stories • Live • Private Videos (with cookies)
+        </span>
+      </div>
+
       {/* URL Input Section */}
       <div className="input-section">
         <div className="input-header">

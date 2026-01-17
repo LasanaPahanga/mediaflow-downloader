@@ -4,17 +4,23 @@ package-lock.json
 
 # Downloaded files
 server/downloads/
+*.mp4
+*.mp3
+*.webm
+*.mkv
+*.m4a
 
 # Sensitive cookies data
 server/cookies.json
 server/cookies.txt
 
-# Temporary player scripts
+# Temporary player scripts (yt-dlp generated)
 server/*-player-script.js
 
 # Build outputs
 client/build/
 dist/
+build/
 
 # Environment variables
 .env
@@ -34,6 +40,7 @@ logs/
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db
 
 # IDE files
 .vscode/
@@ -41,6 +48,21 @@ desktop.ini
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
 # Testing
 coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+.cache/
+
+# FFmpeg temp files
+*.part
+*.ytdl
+*.f*.mp4
+*.f*.webm

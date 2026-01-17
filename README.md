@@ -1,14 +1,17 @@
 # 🎥 MediaFlow Downloader
 
-A modern, powerful video downloader supporting **YouTube**, **Facebook**, and **Instagram** with real-time progress tracking, automatic video+audio merging, and MP3 conversion - built with React, Node.js, yt-dlp, and FFmpeg.
+A modern, powerful video downloader supporting **YouTube**, **Facebook**, **Instagram**, **TikTok**, **X (Twitter)**, and **Direct URLs** with real-time progress tracking, automatic video+audio merging, and MP3 conversion - built with React, Node.js, yt-dlp, and FFmpeg.
 
 ## ✨ Features
 
 ### 🌐 Multi-Platform Support
-- **YouTube** - Full support with 4K downloads, MP3 conversion, and format selection
+- **YouTube** - Full support with 4K/8K downloads, MP3 conversion, and format selection
 - **Facebook** - HD/SD video downloads with audio included
 - **Instagram** - Reels, Posts, and IGTV downloads
-- **Platform Selector** - Clean landing page to choose your platform
+- **TikTok** - Download videos without watermark
+- **X (Twitter)** - Videos, GIFs, and media from tweets
+- **Direct URL** - Any video URL (M3U8/HLS, MP4, etc.)
+- **Platform Selector** - Premium Netflix-style carousel to choose your platform
 
 ### 🚀 Core Features
 - ⚡ **Lightning-Fast Loading** - Two-step fetching: Instant metadata, lazy format loading in background
@@ -24,11 +27,13 @@ A modern, powerful video downloader supporting **YouTube**, **Facebook**, and **
 - 🎧 **MP3 Conversion** - Convert audio to MP3 with selectable bitrate (128/192/256/320 kbps)
 
 ### 🎨 UI Features
-- **Platform Selection** - Choose between YouTube, Facebook, or Instagram downloader
+- **Premium Carousel** - Netflix-style center-focused platform selector
 - **Glass-Morphism Design** - Frosted glass effect with backdrop blur
-- **Smooth Animations** - Polished user experience with slide-in effects
+- **Smooth Animations** - Polished user experience with 500ms transitions
+- **Keyboard Navigation** - Use arrow keys and Enter to navigate
+- **Touch/Swipe Support** - Mobile-friendly gesture navigation
 - **Responsive Layout** - Works seamlessly on desktop, tablet, and mobile
-- **Smart Icons** - Platform-specific branding (YouTube red, Facebook blue, Instagram gradient)
+- **Smart Icons** - Platform-specific branding and gradients
 - **Progress Animations** - Animated progress bar with shimmer effect
 - **Back Navigation** - Easy return to platform selector
 
@@ -56,6 +61,26 @@ A modern, powerful video downloader supporting **YouTube**, **Facebook**, and **
 - **IGTV** - Long-form videos
 - **Private accounts** (with cookies)
 - Best quality auto-selected
+
+### TikTok
+- **No Watermark** - Download videos without TikTok watermark
+- **HD Quality** - High-quality video downloads
+- **Audio Extraction** - Download audio only
+- **Private accounts** (with cookies)
+- Multiple quality options
+
+### X (Twitter)
+- **Video Tweets** - Download videos from tweets
+- **GIFs** - Save animated GIFs as video
+- **Multiple Qualities** - 270p to 1080p options
+- **Tweet Stats** - View likes, retweets, views
+- **Protected Tweets** (with cookies)
+
+### Direct URL
+- **Any Video URL** - Download from any supported site
+- **M3U8/HLS Streams** - Handle streaming formats
+- **Direct MP4** - Download direct video links
+- **1000+ Sites** - Supported via yt-dlp
 
 ## 🚀 Quick Start
 
@@ -174,10 +199,13 @@ MediaFlow Downloader/
 ├── client/                 # React frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── PlatformSelector.js    # Platform selection landing
+│   │   │   ├── PlatformSelector.js    # Premium carousel platform selector
 │   │   │   ├── VideoDownloader.js     # YouTube downloader
 │   │   │   ├── FacebookDownloader.js  # Facebook downloader
-│   │   │   └── InstagramDownloader.js # Instagram downloader
+│   │   │   ├── InstagramDownloader.js # Instagram downloader
+│   │   │   ├── TikTokDownloader.js    # TikTok downloader
+│   │   │   ├── TwitterDownloader.js   # X (Twitter) downloader
+│   │   │   └── DirectDownloader.js    # Direct URL downloader
 │   │   ├── App.js
 │   │   ├── App.css
 │   │   └── index.css
@@ -222,8 +250,12 @@ MediaFlow Downloader/
 - Click "Get Video" to fetch video information
 
 **Supported URLs:**
-- **YouTube:** `youtube.com/watch?v=...`, `youtu.be/...`
+- **YouTube:** `youtube.com/watch?v=...`, `youtu.be/...`, `youtube.com/shorts/...`
 - **Facebook:** `facebook.com/watch`, `fb.watch`, `facebook.com/reel`, `facebook.com/share`
+- **Instagram:** `instagram.com/p/...`, `instagram.com/reel/...`, `instagram.com/tv/...`
+- **TikTok:** `tiktok.com/@user/video/...`, `vm.tiktok.com/...`
+- **X (Twitter):** `twitter.com/.../status/...`, `x.com/.../status/...`
+- **Direct:** Any direct video URL or M3U8 stream
 
 ### 3. Select Format
 
@@ -432,6 +464,28 @@ After installing, restart the server. You'll see:
 
 ## 📝 Changelog
 
+### v8.0 - Premium UI Overhaul 🎨
+- 🎠 **Netflix Carousel** - Premium center-focused platform selector
+- ✨ **Glassmorphism** - Enhanced frosted glass effects throughout
+- ⌨️ **Keyboard Navigation** - Arrow keys + Enter to navigate
+- 👆 **Touch Support** - Swipe gestures for mobile
+- 🎯 **Focus Effects** - Center card highlighted, side cards blurred
+- 📍 **Dot Indicators** - Visual navigation with platform colors
+
+### v7.0 - X (Twitter) & Direct URL Support 🐦
+- 🐦 **Twitter/X Downloader** - Full X (Twitter) video support
+- 🎬 **GIF Downloads** - Save Twitter GIFs as video
+- 📊 **Tweet Stats** - View engagement metrics
+- 🌐 **Direct URL** - Download from any video URL
+- 📺 **M3U8/HLS** - Stream format support
+- 🔧 **Quality Fixes** - Improved format detection
+
+### v6.5 - TikTok Support 🎵
+- 🎵 **TikTok Downloader** - Full TikTok video support
+- 🚫 **No Watermark** - Download without TikTok branding
+- 🎧 **Audio Only** - Extract audio from TikTok videos
+- 📱 **Mobile Links** - Support for vm.tiktok.com links
+
 ### v6.0 - Instagram Support 📸
 - 📸 **Instagram Downloader** - Full Instagram support added
 - 🎬 **Reels & IGTV** - Download short and long-form videos
@@ -466,7 +520,7 @@ After installing, restart the server. You'll see:
 
 ## ⚠️ Disclaimer
 
-This tool is for educational purposes only. Please respect YouTube's, Facebook's, and Instagram's Terms of Service and copyright laws. Always ensure you have the right to download the content. Download content for personal use only and respect content creators' rights.
+This tool is for educational purposes only. Please respect the Terms of Service of YouTube, Facebook, Instagram, TikTok, X (Twitter), and other platforms. Always ensure you have the right to download the content. Download content for personal use only and respect content creators' rights.
 
 ## 📄 License
 

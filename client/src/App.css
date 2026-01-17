@@ -1094,6 +1094,28 @@
   background-clip: text;
 }
 
+/* ==========================================
+   X (Twitter) Downloader Styles
+   ========================================== */
+
+/* Twitter Logo Styles */
+.twitter-logo {
+  background: linear-gradient(135deg, #000000 0%, #14171A 100%);
+  position: relative;
+}
+
+.twitter-badge {
+  background: linear-gradient(135deg, #1DA1F2 0%, #0d8ecf 100%) !important;
+  box-shadow: 0 4px 15px rgba(29, 161, 242, 0.4) !important;
+}
+
+.gradient-text-twitter {
+  background: linear-gradient(135deg, #1DA1F2 0%, #0d8ecf 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* TikTok Input Field */
 .tiktok-input-field:focus {
   border-color: #FE2C55 !important;
@@ -1225,4 +1247,70 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ==========================================
+   Direct URL Downloader Styles
+   ========================================== */
+
+.direct-downloader {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Direct URL Logo Styles */
+.direct-logo {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  position: relative;
+}
+
+.direct-badge {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4) !important;
+}
+
+.gradient-text-direct {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Direct URL Input Field */
+.direct-input-field:focus {
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+}
+
+.direct-icon-color {
+  color: #10B981 !important;
+}
+
+/* Direct URL Video Section */
+.direct-video-section {
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 20px;
+}
+
+/* Direct URL Progress */
+.direct-progress {
+  color: #10B981 !important;
+}
+
+.direct-progress-bar {
+  background: linear-gradient(90deg, #10B981 0%, #059669 100%) !important;
+}
+
+/* Direct URL Download Button */
+.direct-download-btn {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4) !important;
+}
+
+.direct-download-btn:hover:not(:disabled) {
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5) !important;
 }

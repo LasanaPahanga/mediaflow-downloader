@@ -225,6 +225,25 @@ const TikTokDownloader = () => {
         </div>
       )}
 
+      {/* Supported Video Types */}
+      <div className="supported-types-banner" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '14px 20px',
+        marginBottom: '20px',
+        borderRadius: '12px',
+        background: 'linear-gradient(135deg, rgba(0, 242, 234, 0.1) 0%, rgba(255, 0, 80, 0.1) 100%)',
+        border: '1px solid rgba(0, 242, 234, 0.3)',
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: '0.9rem'
+      }}>
+        <Music size={20} style={{ color: '#00F2EA', flexShrink: 0 }} />
+        <span>
+          <strong style={{ color: '#00F2EA' }}>Supported:</strong> Videos • Slideshows • Duets • Sounds • Live • No Watermark Option
+        </span>
+      </div>
+
       {/* URL Input Section */}
       <div className="input-section tiktok-input">
         <div className="input-header">

@@ -237,6 +237,25 @@ const InstagramDownloader = () => {
         </div>
       )}
 
+      {/* Supported Video Types */}
+      <div className="supported-types-banner" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '14px 20px',
+        marginBottom: '20px',
+        borderRadius: '12px',
+        background: 'linear-gradient(135deg, rgba(225, 48, 108, 0.1) 0%, rgba(131, 58, 180, 0.1) 100%)',
+        border: '1px solid rgba(225, 48, 108, 0.2)',
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: '0.9rem'
+      }}>
+        <Instagram size={20} style={{ color: '#E1306C', flexShrink: 0 }} />
+        <span>
+          <strong style={{ color: '#E1306C' }}>Supported:</strong> Reels • Posts • IGTV • Stories • Highlights • Private (with cookies)
+        </span>
+      </div>
+
       {/* URL Input Section */}
       <div className="input-section">
         <div className="input-header">
